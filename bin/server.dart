@@ -10,12 +10,22 @@ List<String> users = [];
 Middleware logMiddleware = createMiddleware(
     requestHandler: (Request r) => print('Requested url: ${r.url}'));
 
+Handler addCustomHeader(Handler innerHandler) {
+  modifyHeader(Request request) {
+    var modified = request.change(headers: {'customHeader': 'someValue'});
+    return modified;
+  }
+
+  return (request) => innerHandler(modifyHeader(request));
+}
+
 main(List<String> args) async {
   var addUserPipeline =
       const Pipeline().addMiddleware(logMiddleware).addHandler(addUserHandler);
 
-  var getUsersPipeline =
-      const Pipeline().addMiddleware(logMiddleware).addHandler(getUsersHandler);
+  var getUsersPipeline = const Pipeline()
+      .addMiddleware(addCustomHeader)
+      .addHandler(getUsersHandler);
 
   var cascade = new Cascade(shouldCascade: (Response r) => r == null)
       .add(addUserPipeline)
@@ -41,6 +51,7 @@ Response addUserHandler(Request request) {
 
 Response getUsersHandler(Request request) {
   if (request.url.path == "users" && request.method == 'GET') {
+    print(request.headers);
     return new Response.ok(JSON.encode(users));
   } else {
     return null;
